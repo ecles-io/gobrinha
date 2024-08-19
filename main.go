@@ -38,12 +38,9 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	// Define a cor do quadrado
-	col := color.RGBA{255, 0, 127, 255} // Azul
+	col := color.RGBA{255, 1, 127, 255} 
 
-
-	// Desenha um quadrado (rect)
-	y:= 100  // Coordenadas do canto superior esquerdo
+	y:= 100  
 	ebitenutil.DrawRect(screen, g.posicaoDoQuadrado, float64(y), g.tamQuadrado, g.tamQuadrado, col)
 }
 
