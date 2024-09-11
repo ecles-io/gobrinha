@@ -4,51 +4,86 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"image/color"
+	"log"
+	"math/rand"
+	"time"
 )
 
 const (
-	direita  uint8 = 0
-	esquerda uint8 = 1
-	cima uint8 = 2
-	baixo uint8 = 3
+	screenWidth  = 640
+	screenHeight = 480
+	snakeSize    = 10
+	tickRate     = 5 // Define a velocidade da cobra (quanto maior, mais lenta)
 )
 
+type Point struct {
+	X, Y int
+}
+
 type Game struct {
-	tamQuadrado float64
-	posX        float64
-	posY        float64
-	tamTelaX    float64
-	tamTelaY    float64
-	direcao     uint8
+	snake     []Point
+	direction Point
+	food      Point
+	started   bool
+	tickCount int
 }
 
 func (g *Game) Update() error {
-	if ebiten.IsKeyPressed(ebiten.KeyRight) {
-		g.direcao = direita
-	} else if ebiten.IsKeyPressed(ebiten.KeyLeft) {
-		g.direcao = esquerda
-	} else if ebiten.IsKeyPressed(ebiten.KeyUp) {
-		g.direcao = cima
-	} else if ebiten.IsKeyPressed(ebiten.KeyDown) {
-		g.direcao = baixo
+	// Controle da direção
+	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) && g.direction.Y != 1 {
+		g.direction = Point{X: 0, Y: -1}
+		g.started = true
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyArrowDown) && g.direction.Y != -1 {
+		g.direction = Point{X: 0, Y: 1}
+		g.started = true
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) && g.direction.X != 1 {
+		g.direction = Point{X: -1, Y: 0}
+		g.started = true
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyArrowRight) && g.direction.X != -1 {
+		g.direction = Point{X: 1, Y: 0}
+		g.started = true
 	}
 
-	switch g.direcao {
-	case direita:
-		if g.posX+g.tamQuadrado < g.tamTelaX {
-			g.posX += 5
-		}
-	case esquerda:
-		if g.posX > 0 {
-			g.posX -= 5
-		}
-	case cima:
-		if g.posY > 0 {
-			g.posY -= 5
-		}
-	case baixo:
-		if g.posY+g.tamQuadrado < g.tamTelaY {
-			g.posY += 5
+	// Se o jogo não começou, não atualiza a posição da cobra
+	if !g.started {
+		return nil
+	}
+
+	// Controlar a velocidade da cobra
+	g.tickCount++
+	if g.tickCount < tickRate {
+		return nil
+	}
+	g.tickCount = 0
+
+	// Atualizar a posição da cobra
+	head := g.snake[0]
+	head.X += g.direction.X * snakeSize
+	head.Y += g.direction.Y * snakeSize
+
+	// Inserir nova cabeça da cobra
+	g.snake = append([]Point{head}, g.snake...)
+
+	// Verificar se a cobra comeu a comida
+	if head.X == g.food.X && head.Y == g.food.Y {
+		g.food = g.newFoodPosition()
+	} else {
+		// Remover a cauda se a cobra não comeu
+		g.snake = g.snake[:len(g.snake)-1]
+	}
+
+	// Verificar colisão com a parede
+	if head.X < 0 || head.Y < 0 || head.X >= screenWidth || head.Y >= screenHeight {
+		return ebiten.Termination
+	}
+
+	// Verificar colisão com o próprio corpo
+	for _, s := range g.snake[1:] {
+		if head.X == s.X && head.Y == s.Y {
+			return ebiten.Termination
 		}
 	}
 
@@ -56,27 +91,43 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	col := color.RGBA{255, 0, 127, 255}
-	ebitenutil.DrawRect(screen, g.posX, g.posY, g.tamQuadrado, g.tamQuadrado, col)
+	// Desenhar a cobra
+	for _, s := range g.snake {
+		ebitenutil.DrawRect(screen, float64(s.X), float64(s.Y), snakeSize, snakeSize, color.RGBA{0, 255, 0, 255})
+	}
+
+	// Desenhar a comida
+	ebitenutil.DrawRect(screen, float64(g.food.X), float64(g.food.Y), snakeSize, snakeSize, color.RGBA{255, 0, 0, 255})
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return int(g.tamTelaX), int(g.tamTelaY)
+	return screenWidth, screenHeight
+}
+
+func (g *Game) newFoodPosition() Point {
+	return Point{
+		X: rand.Intn(screenWidth/snakeSize) * snakeSize,
+		Y: rand.Intn(screenHeight/snakeSize) * snakeSize,
+	}
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	game := &Game{
-		tamQuadrado: 50,
-		posX:        100,
-		posY:        100,
-		tamTelaX:    800,
-		tamTelaY:    600,
-		direcao:     cima, 
+		snake: []Point{
+			{X: screenWidth / 2, Y: screenHeight / 2},
+		},
+		direction: Point{X: 0, Y: 0}, // Cobra começa parada
+		food:      Point{},
 	}
-	ebiten.SetWindowSize(int(game.tamTelaX), int(game.tamTelaY))
-	ebiten.SetTPS(60)
-	ebiten.SetWindowTitle("Mover Quadrado com Setas")
-	if err := ebiten.RunGame(game); err != nil {
-		panic(err)
+
+	game.food = game.newFoodPosition()
+
+	ebiten.SetWindowSize(screenWidth, screenHeight)
+	ebiten.SetWindowTitle("Snake Game")
+
+	if err := ebiten.RunGame(game); err != nil && err != ebiten.Termination {
+		log.Fatal(err)
 	}
 }
