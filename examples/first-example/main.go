@@ -127,7 +127,7 @@ func main() {
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Snake Game")
 
-	if err := ebiten.RunGame(game); err != nil && err != ebiten.Termination {
-		log.Fatal(err)
+		if err := ebiten.RunGame(game); err != nil && err != ebiten.Termination {
+			log.Fatal(err)
+		}
 	}
-}
